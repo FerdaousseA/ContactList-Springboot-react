@@ -9,9 +9,8 @@ import com.example.contactapi.domain.Contact;
 
 
 @Repository
-public interface ContactRepo extends JpaRepository<Contact, String> {
-	Optional<Contact> findById(String id);
-}
+public interface ContactRepo extends JpaRepository<Contact, String>{
 	
+	Optional<Contact> findById(String id);
 
-
+}

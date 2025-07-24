@@ -1,42 +1,45 @@
 package com.example.contactapi.service;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
+import java.util.Optional;
+import java.util.function.BiFunction;
+import java.util.function.Function;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
+import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
+
+import com.example.contactapi.constant.Constant;
 import com.example.contactapi.domain.Contact;
 import com.example.contactapi.repo.ContactRepo;
 
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;    
-import org.springframework.data.domain.Sort;
-import org.springframework.stereotype.Service;
-import org.springframework.web.multipart.MultipartFile;
-import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.util.Optional;
-import java.util.function.BiFunction;
-import java.util.function.Function;
 
-import static com.example.contactapi.constant.Constant.PHOTO_DIRECTORY;
-import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 @Service
-@Transactional(rollbackOn = Exception.class)
+@Slf4j
 
+@Transactional(rollbackOn = Exception.class)
+@RequiredArgsConstructor
 
 public class ContactService {
-    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(ContactService.class);
+	private static final Logger log = LoggerFactory.getLogger(ContactService.class);
 
-    private final ContactRepo contactRepo;
-
- 
-    public ContactService(ContactRepo contactRepo) {
-        this.contactRepo = contactRepo;
-    }
-
+	@Autowired
+    private ContactRepo contactRepo;
+	
     public Page<Contact> getAllContacts(int page, int size) {
         return contactRepo.findAll(PageRequest.of(page, size, Sort.by("name")));
     }
@@ -49,19 +52,10 @@ public class ContactService {
         return contactRepo.save(contact);
     }
 
-    public void deleteContactById(String id) {
-        if (contactRepo.existsById(id)) {
-            contactRepo.deleteById(id);
-            log.info("Contact with ID {} deleted successfully", id);
-        } else {
-            throw new RuntimeException("Contact not found");
-        }
+    public void deleteContact(Contact contact) {
+        contactRepo.delete(contact);
     }
 
-
-
-    
-    
     public String uploadPhoto(String id, MultipartFile file) {
         log.info("Saving picture for user ID: {}", id);
         Contact contact = getContact(id);
@@ -71,20 +65,30 @@ public class ContactService {
         return photoUrl;
     }
 
-    private final Function<String, String> fileExtension = filename -> Optional.of(filename).filter(name -> name.contains("."))
-            .map(name -> "." + name.substring(filename.lastIndexOf(".") + 1)).orElse(".png");
+    private final Function<String, String> fileExtension = filename ->
+        Optional.ofNullable(filename)
+                .filter(name -> name.contains("."))
+                .map(name -> "." + name.substring(name.lastIndexOf('.') + 1))
+                .orElse(".jpg");
 
-    private final BiFunction<String, MultipartFile, String> photoFunction = (id, image) -> {
-        String filename = id + fileExtension.apply(image.getOriginalFilename());
+    private final BiFunction<String, MultipartFile, String> photoFunction = (id, file) -> {
+        String filename = id + fileExtension.apply(file.getOriginalFilename());
         try {
-            Path fileStorageLocation = Paths.get(PHOTO_DIRECTORY).toAbsolutePath().normalize();
-            if(!Files.exists(fileStorageLocation)) { Files.createDirectories(fileStorageLocation); }
-            Files.copy(image.getInputStream(), fileStorageLocation.resolve(filename), REPLACE_EXISTING);
+            Path fileStorageLocation = Paths.get(Constant.PHOTO_DIRECTORY).toAbsolutePath().normalize();
+            if (!Files.exists(fileStorageLocation)) {
+                Files.createDirectories(fileStorageLocation);
+            }
+            Path targetLocation = fileStorageLocation.resolve(filename);
+            Files.copy(file.getInputStream(), targetLocation, StandardCopyOption.REPLACE_EXISTING);
+
             return ServletUriComponentsBuilder
                     .fromCurrentContextPath()
-                    .path("/contacts/image/" + filename).toUriString();
-        }catch (Exception exception) {
-            throw new RuntimeException("Unable to save image");
+                    .path("/contacts/file/")
+                    .path(filename)
+                    .toUriString();
+        } catch (Exception exception) {
+            log.error("Error while saving image", exception);
+            throw new RuntimeException("Unable to save image", exception);
         }
     };
 }

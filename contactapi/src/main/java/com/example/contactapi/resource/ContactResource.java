@@ -10,8 +10,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.bind.annotation.GetMapping;
+	import org.springframework.web.bind.annotation.GetMapping;
 	import org.springframework.web.bind.annotation.PathVariable;
 	import org.springframework.web.bind.annotation.PostMapping;
 	import org.springframework.web.bind.annotation.PutMapping;
@@ -68,13 +67,4 @@ import static com.example.contactapi.constant.Constant.PHOTO_DIRECTORY;
 	    public byte[] getPhoto(@PathVariable("filename") String filename) throws IOException {
 	        return Files.readAllBytes(Paths.get(PHOTO_DIRECTORY + filename));
 	    }
-	    
-	    @DeleteMapping("/{id}")
-	    public ResponseEntity<Void> deleteContactById(@PathVariable String id) {
-	        contactService.deleteContactById(id);
-	        return ResponseEntity.noContent().build(); // HTTP 204
-	    }
-
-
-
 	}
